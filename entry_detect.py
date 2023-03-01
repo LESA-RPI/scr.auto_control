@@ -2,13 +2,18 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import numpy as np
+
+import datetime
+
 import sys, time
 sys.path.append("../catkin_ws/src/scr_control/scripts/lights")
 sys.path.append("../catkin_ws/src/scr_control/scripts/time_of_flight")
 import SCR_OctaLight_client as light_control
 import SCR_TOF_client as tof
 
-def tof_pixel_check(tof_id, loop_count=10, freq=0.1, ignore_percentage=20, bar_chart=True, grid=True, bar_fn="ToF_bar_chart.png", grid_fn="ToF_grid_figure.png"):
+def tof_pixel_check(tof_id, loop_count=10, freq=0.00001, threshold=500, bar_chart=True, grid=True, bar_fn="ToF_bar_chart.png", grid_fn="ToF_grid_figure.png"):
+    
     tof_data_list = tof.get_distances(tof_id)
     
     change_freq_matrix = [[[] for j in range(len(tof_data_list[0]))] for i in range(len(tof_data_list))]
@@ -16,7 +21,7 @@ def tof_pixel_check(tof_id, loop_count=10, freq=0.1, ignore_percentage=20, bar_c
     # store the current data in the ToF matrix
     tof_origin = tof_data_list
     
-    time.sleep(0.1)
+    #time.sleep(0.1)
     
     # detect the new data from the ToF sensor in the loop
     # and return the changes of data 
@@ -40,7 +45,7 @@ def tof_pixel_check(tof_id, loop_count=10, freq=0.1, ignore_percentage=20, bar_c
 
         
         tof_origin = tof_data_list
-        time.sleep(freq)
+        #time.sleep(freq)
 
     
     # calcualte the average changes for each pixel
@@ -90,12 +95,7 @@ def tof_pixel_check(tof_id, loop_count=10, freq=0.1, ignore_percentage=20, bar_c
         plt.savefig(bar_fn)
 
     # Plot the grid
-    if grid: 
-        # Calculate the threshold value
-        extracted_pixel_number = int(500*ignore_percentage/100)
-        # The value above this threshold will be highlighted
-        threshold = sorted_mean_change[extracted_pixel_number-1][1]
-        
+    if grid:  
         # Create a new martix to store the max changes values
         max_change_matrix = [[0 for j in range(20)] for i in range(25)]
         for i in range(0, len(change_freq_matrix)):
@@ -112,10 +112,6 @@ def tof_pixel_check(tof_id, loop_count=10, freq=0.1, ignore_percentage=20, bar_c
         # Add a colorbar
         cbar = ax.figure.colorbar(im, ax=ax)
         
-        print("===================\n\n")
-        print(len(change_freq_matrix), len(change_freq_matrix[0]))
-        print("\n\n===================")
-
         # Loop over the matrix and add text annotations
         for i in range(25):
             for j in range(20):
@@ -149,7 +145,143 @@ def tof_pixel_check(tof_id, loop_count=10, freq=0.1, ignore_percentage=20, bar_c
 
         # Save the figure to a file
         plt.savefig(grid_fn)
+        
+        # Return the matrix of seleted pixel
+        selected_pixel = np.zeros((25,20))
+        
+        for i in range(0, len(max_change_matrix)):
+            for j in range(0, len(max_change_matrix[0])):
+                if max_change_matrix[i][j] < threshold:
+                    selected_pixel[i, j] = True
+                else: 
+                    selected_pixel[i, j] = False
+        
+        
+        return selected_pixel
 
+def plot_data(tof_id):
+    tof_data_mat = tof.get_distances(int(tof_id))
+    
+    # Create a new figure and axis object
+    fig, ax = plt.subplots()
+
+    # Plot the matrix as an image
+    im = ax.imshow(tof_data_mat, cmap='coolwarm')
+
+    # Add a colorbar
+    cbar = ax.figure.colorbar(im, ax=ax)
+    
+    # Loop over the matrix and add text annotations
+    for i in range(25):
+        for j in range(20):
+            text = ax.text(j, i, tof_data_mat[i][j],
+                        ha="center", va="center",
+                        fontsize = 4)
+    
+    # Set the axis labels
+    ax.set_xticks(range(20))
+    ax.set_yticks(range(25))
+
+    # Set the tick labels
+    ax.set_xticklabels(range(1, 21))
+    ax.set_yticklabels(range(1, 26))
+
+    # Set the axis labels
+    ax.set_xlabel("Column")
+    ax.set_ylabel("Row")
+
+    # Set the title
+    ax.set_title("ToF Data Matrix")
+    
+    # Save the figure to a file
+    plt.savefig("ToF #{} Data".format(tof_id))
+    
+
+def entry_detect(start=False):
+    if start == False: 
+        return None
+    
+    while(1):
+        
+        
+        # read the new data
+        tof_data_list = tof.get_distances(0)
+        
+        trigger = False
+        
+        for pixel in tof_data_list[24]:
+            if pixel <= 2500: 
+                trigger = True
+                break
+        
+        if trigger == False:
+            continue
+        
+        # If the data read by door-side pixels is lower than 2500
+        # This means someone may get into the room. 
+        
+        # Then, in 1 second period, detect the change of each pixel, 
+        # If there are more than 5 pixels have a change lower than
+        # 700, the lights will turn on. 
+        
+        tof_data_origin = tof_data_list # Store the old values
+        
+        start_time = time.time() # Get the start time
+        pixel_change_count = 0 # Count the number of pixels with a high change
+    
+        
+        while (time.time() - start_time) < 1: # Keep running in 1 second
+            
+            tof_data_list = tof.get_distances(0) # Update the values
+            
+            # create a new matrix to store the changes of data
+            data_change_matrix = np.zeros((25,20))
+            
+            # calculate and store the changes
+            for i in range(20, 25): 
+                for j in range(0, 20):
+                    change = tof_data_list[i][j] - tof_data_origin[i][j]
+                    data_change_matrix[i, j] = change
+                    if(change <= -600):
+                        pixel_change_count += 1
+                        if pixel_change_count >= 5:
+                            end_time = time.time()
+                            return True, end_time-start_time
+
+
+            tof_data_origin = tof_data_list
 
 if __name__ == "__main__":
-    tof_pixel_check(int(sys.argv[1]),bar_chart=False)
+    pixel_pick_mat = tof_pixel_check(int(sys.argv[1]),bar_chart=False)
+    print("System Initialized")
+    plot_data(int(sys.argv[1]))
+    
+    #print(light_control.get_lights())
+    
+    # Open the file for writing
+    with open("output.txt", "w") as log_file:
+        
+    
+        while(1):
+            turn_on_lights, time_used = entry_detect(True)
+            if turn_on_lights:
+                #print(time_used)
+                current_time = datetime.datetime.now()
+                log_file.write("Turn on the lights at: {}\n\n".format(current_time))
+                
+                '''
+                light_control.cct(0, 2, 3500, 1000)
+                light_control.cct(0, 0, 3500, 1000)
+                light_control.cct(1, 1, 3500, 1000)
+                light_control.cct(2, 0, 3500, 1000)
+                light_control.cct(2, 2, 3500, 1000)
+                
+                light_control.cct(3, 0, 3500, 500)
+                light_control.cct(3, 2, 3500, 500)
+                '''
+                
+    
+    
+    
+    #test = tof.get_distances(int(0))
+    #print(len(test), len(test[0]))
