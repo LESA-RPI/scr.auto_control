@@ -140,7 +140,6 @@ if __name__ == "__main__":
                 light_control.cct(1, 1, 3500, 1000)
                 light_control.cct(2, 0, 3500, 1000)
                 light_control.cct(2, 2, 3500, 1000)
-                
                 light_control.cct(3, 0, 3500, 500)
                 light_control.cct(3, 2, 3500, 500)
                 
