@@ -68,16 +68,31 @@ def is_room_occupied():
 
     return occupied
 
+# Constants
+consecutive_detection_threshold = 5  # Adjust this value as needed
+
 # Main loop
 prev_state_occupied = False
+consecutive_occupancy_count = 0
+consecutive_vacancy_count = 0
+
 while True:
     room_occupied = is_room_occupied()
 
-    if room_occupied and not prev_state_occupied:
-        # Turn lights on
-        print("On")
-    elif not room_occupied and prev_state_occupied:
-        # Turn lights off
-        print("Off")
+    if room_occupied:
+        consecutive_occupancy_count += 1
+        consecutive_vacancy_count = 0
+    else:
+        consecutive_vacancy_count += 1
+        consecutive_occupancy_count = 0
 
-    prev_state_occupied = room_occupied
+    if consecutive_occupancy_count >= consecutive_detection_threshold and not prev_state_occupied:
+        # Turn lights on
+        control_lights(True)
+        prev_state_occupied = True
+    elif consecutive_vacancy_count >= consecutive_detection_threshold and prev_state_occupied:
+        # Turn lights off
+        control_lights(False)
+        prev_state_occupied = False
+
+    time.sleep(1)
