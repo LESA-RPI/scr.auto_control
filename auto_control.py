@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import datetime
+from gradient import *
 
 import sys, time
 sys.path.append("../catkin_ws/src/scr_control/scripts/lights")
@@ -18,7 +19,7 @@ import SCR_COS_client as cos
 # with a high noise level. Then, these pixels 
 # will be ignored in the auto_control algorithm.   
 
-def tof_pixel_check(tof_id, loop_count=10, freq=0.1, threshold=500, bar_chart=True, grid=True, bar_fn="ToF_bar_chart.png", grid_fn="ToF_grid_figure.png"):
+def tof_pixel_check(tof_id, loop_count=100, freq=0.1, threshold=500, bar_chart=True, grid=True, bar_fn="ToF_bar_chart.png", grid_fn="ToF_grid_figure.png"):
     
     tof_data_list = tof.get_distances(tof_id)
     
@@ -165,6 +166,7 @@ def tof_pixel_check(tof_id, loop_count=10, freq=0.1, threshold=500, bar_chart=Tr
     # Set pixels to False manually
     for i in range(22, 25):
         selected_pixel[i, 19] = False
+    selected_pixel[23, 18] = False
     
     return selected_pixel
     
@@ -240,8 +242,12 @@ def entry_detect(pixel_pick_mat, start=False):
         tof_data_origin = tof_data_list
 
 
-def turn_lights_on(trigger):
-    if trigger:
+def turn_lights_on(gradient_trigger):
+    if gradient_trigger:
+        turn_on_light_gradually()
+        
+
+    else:
         light_control.cct(0, 2, 3500, 1000)
         light_control.cct(0, 0, 3500, 1000)
         light_control.cct(1, 1, 3500, 1000)
@@ -252,6 +258,8 @@ def turn_lights_on(trigger):
         light_control.cct(4, 1, 3500, 500)
         light_control.cct(5, 2, 3500, 500)
         light_control.cct(5, 0, 3500, 500)
+        
+
 
 def sleep_helper(log_file):
     
@@ -270,9 +278,11 @@ def sleep_helper(log_file):
 
 if __name__ == "__main__":
 
+    print("System is initializing, please make sure there's no movement near the door")
     pixel_pick_mat = tof_pixel_check(0, bar_chart=False)
     sleep_flag = False
     print("System Initialized")
+    print("auto_control system is running")
     
     # Open the file for writing
     with open("auto_control_log.txt", "w") as log_file:
@@ -304,16 +314,4 @@ if __name__ == "__main__":
                     
                 light_is_off = all(value == 0.0 for value in light_control.get_sources(0, 0))
 
-
-
-            
-            
-
-
-
-                    
-                    
-
-                
-                
 
