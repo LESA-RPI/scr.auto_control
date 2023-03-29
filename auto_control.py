@@ -175,10 +175,6 @@ def check_neighbors(matrix, row, col):
     left = matrix[row][col-1] if col > 0 else 2000
     right = matrix[row][col+1] if col < cols-1 else 2000
     
-    print("================",row, col)
-    print((row+1,col),(row,col-1),(row,col+1))
-    print(bottom, left, right)
-    
     return bottom <= 2700 and left <= 2700 and right <= 2700
     
     
@@ -234,7 +230,8 @@ def entry_detect(pixel_pick_mat, start=False):
                 #and check_neighbors(tof_data_list, i, j):
                     
                     pixel_change_count += 1
-                    print("<= -500 detected on:", i, j)
+                    print("distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
+                    log_file.write("distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
                     if pixel_change_count >= 3:
 
                         return True
@@ -256,16 +253,19 @@ def turn_lights_on(trigger):
         light_control.cct(5, 2, 3500, 500)
         light_control.cct(5, 0, 3500, 500)
 
-def sleep_helper():
+def sleep_helper(log_file):
     
     sleep_timer = time.time()
 
     while(time.time() - sleep_timer) < 60:
         # If the light is turned on manually
         if not (all(value == 0.0 for value in light_control.get_sources(0, 0))): 
-            print("Lights are turned on during sleep, auto_control enabled")
+            print("Lights are turned on during sleep, auto_control enabled {}".format(datetime.datetime.now()))
+            log_file.write("Lights are turned on during sleep, auto_control enabled {}".format(datetime.datetime.now()))
             return True
-        
+    
+    print("1 min is up, auto_control enabled {}".format(datetime.datetime.now()))
+    log_file.write("1 min is up, auto_control enabled {}".format(datetime.datetime.now()))
     return False
 
 if __name__ == "__main__":
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     print("System Initialized")
     
     # Open the file for writing
-    with open("testing_3_23.txt", "w") as log_file:
+    with open("auto_control_log.txt", "w") as log_file:
         
         # While the light is off
         while True:
@@ -287,8 +287,9 @@ if __name__ == "__main__":
 
             # sleep for 60 second:
             if light_is_off and sleep_flag:
-                print("Lights are turned off, disable auto_control for 1 minute")
-                sleep_flag = sleep_helper()
+                print("Lights are turned off, disable auto_control for 1 minute {}".format(datetime.datetime.now()))
+                log_file.write("Lights are turned off, disable auto_control for 1 minute {}".format(datetime.datetime.now()))
+                sleep_flag = sleep_helper(log_file)
             
             light_is_off = all(value == 0.0 for value in light_control.get_sources(0, 0))
             
@@ -298,8 +299,8 @@ if __name__ == "__main__":
                     turn_lights_on(True)
                     sleep_flag = True
                     current_time = datetime.datetime.now()
-                    log_file.write("Turn on the lights at: {}\n\n".format(current_time))
-                    print("Turn lights on at {}\n\n".format(current_time))
+                    log_file.write("Turn on the lights at: {}\n".format(current_time))
+                    print("Turn lights on at {}\n".format(current_time))
                     
                 light_is_off = all(value == 0.0 for value in light_control.get_sources(0, 0))
 
