@@ -19,7 +19,7 @@ import SCR_COS_client as cos
 # with a high noise level. Then, these pixels 
 # will be ignored in the auto_control algorithm.   
 
-def tof_pixel_check(tof_id, loop_count=100, freq=0.1, threshold=500, bar_chart=True, grid=True, bar_fn="ToF_bar_chart.png", grid_fn="ToF_grid_figure.png"):
+def tof_pixel_check(tof_id, loop_count=10, freq=0.1, threshold=500, bar_chart=True, grid=True, bar_fn="ToF_bar_chart.png", grid_fn="ToF_grid_figure.png"):
     
     tof_data_list = tof.get_distances(tof_id)
     
@@ -28,15 +28,10 @@ def tof_pixel_check(tof_id, loop_count=100, freq=0.1, threshold=500, bar_chart=T
     # store the current data in the ToF matrix
     tof_origin = tof_data_list
     
-    
     # detect the new data from the ToF sensor in the loop
     # and return the changes of data 
     for itr_number in range(0, loop_count):
-        max_change = 0
-        max_change_i = 0 
-        max_change_j = 0 
-        
-        max_change_output = ""
+
         # create a new matrix to store the changes of data
         data_change_matrix = [[0]*len(tof_data_list[0]) for i in range(len(tof_data_list))]
         # read the new data matrix
@@ -49,8 +44,8 @@ def tof_pixel_check(tof_id, loop_count=100, freq=0.1, threshold=500, bar_chart=T
                 if itr_number != 0:
                     (change_freq_matrix[i][j]).append(data_change_matrix[i][j])
 
-        
         tof_origin = tof_data_list
+        
         time.sleep(freq)
 
     
@@ -83,7 +78,6 @@ def tof_pixel_check(tof_id, loop_count=100, freq=0.1, threshold=500, bar_chart=T
         # plot the maximum_change and mean_change amoung these pixels
         plot_max_list_x = []
         plot_max_list_y = []
-
         
         for d in sorted_mean_change:
             plot_max_list_x.append(str(d[2])+str(d[3]))
@@ -132,8 +126,8 @@ def tof_pixel_check(tof_id, loop_count=100, freq=0.1, threshold=500, bar_chart=T
         ax.set_yticks(range(25))
 
         # Set the tick labels
-        ax.set_xticklabels(range(1, 26))
-        ax.set_yticklabels(range(1, 21))
+        ax.set_xticklabels(range(1, 21))
+        ax.set_yticklabels(range(1, 26))
 
         # Set the axis labels
         ax.set_xlabel("Column")
@@ -180,71 +174,86 @@ def check_neighbors(matrix, row, col):
     return bottom <= 2700 and left <= 2700 and right <= 2700
     
     
-def entry_detect(pixel_pick_mat, start=False):
-    if start == False: 
-        return None
+def entry_detect(pixel_pick_mat_0, pixel_pick_mat_1, start=False):
     
+    with open("auto_control_log.txt", "w") as log_file:
 
-    # read the new data
-    tof_data_list = tof.get_distances(0)
-    
-    trigger = False
-    
-    j = 0
-    
-    for pixel in tof_data_list[24]:
-        #print(tof_data_list[24])
-        if pixel <= 2000 and pixel_pick_mat[24][j]: 
-            trigger = True
-            break
-        j += 1
-    
-    if not trigger:
-        return False
-    
-    # If the data read by door-side pixels is lower than 2500
-    # This means someone may get into the room. 
-    
-    # Then, in 1 second period, detect the change of each pixel, 
-    # If there are more than 5 pixels have a change lower than
-    # -500, the lights will turn on. 
-    
-    tof_data_origin = tof_data_list # Store the old values
-    
-    start_time = time.time() # Get the start time
-    pixel_change_count = 0 # Count the number of pixels with a high change
-
-    #print("Enter 2s while loop")
-    while (time.time() - start_time) < 2: # Keep running in 2 seconds
+        # read the new data
+        tof_data_list_0 = tof.get_distances(0)
+        tof_data_list_1 = tof.get_distances(1)
         
-        tof_data_list = tof.get_distances(0) # Update the values
+        trigger = False
         
-        # create a new matrix to store the changes of data
-        #data_change_matrix = np.zeros((25,20))
+        for i in range(4, 20):
+
+            if tof_data_list_0[24][i] <= 2400 and pixel_pick_mat_0[24][i]: 
+                trigger = True
+                break
         
-        # calculate and compare the changes
-        for i in range(22, 25): 
-            for j in range(0, 20):
-                change = tof_data_list[i][j] - tof_data_origin[i][j]
-                #data_change_matrix[i, j] = change
-                if (change <= -500)\
-                and (pixel_pick_mat[i][j]):
-                #and check_neighbors(tof_data_list, i, j):
-                    
-                    pixel_change_count += 1
-                    print("distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
-                    log_file.write("distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
-                    if pixel_change_count >= 3:
+        if not trigger:
+            return False
+        
+        # If the data read by door-side pixels is lower than 2500
+        # This means someone may get into the room. 
+        
+        # Then, in 1 second period, detect the change of each pixel, 
+        # If there are more than 5 pixels have a change lower than
+        # -500, the lights will turn on. 
+    
+        tof_data_origin_0 = tof_data_list_0 # Store the old values
+        tof_data_origin_1 = tof_data_list_1
+        
+        start_time = time.time() # Get the start time
+        pixel_change_count = 0 # Count the number of pixels with a high change
 
-                        return True
+        #print("Enter 2s while loop")
+        while (time.time() - start_time) < 2: # Keep running in 2 seconds
+            
+            tof_data_list_0 = tof.get_distances(0) # Update the values
+            
+            # create a new matrix to store the changes of data
+            #data_change_matrix = np.zeros((25,20))
+            
+            # calculate and compare the changes in ToF sensor #0
+            for i in range(22, 25): 
+                for j in range(0, 20):
+                    change = tof_data_list_0[i][j] - tof_data_origin_0[i][j]
+                    #data_change_matrix[i, j] = change
+                    if (change <= -500)\
+                    and (pixel_pick_mat_0[i][j]):
+                        
+                        pixel_change_count += 1
+                        print("ToF #0: distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
+                        log_file.write("ToF #0: distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
+                        if pixel_change_count >= 3:
 
+                            return True
+            
+            tof_data_list_1 = tof.get_distances(1)
+            # calculate and compare the changes in ToF sensor #1
+            for i in range(19, 25): 
+                for j in range(0, 5):
 
-        tof_data_origin = tof_data_list
+                    change = tof_data_list_1[i][j] - tof_data_origin_1[i][j]
+
+                    if (change <= -500)\
+                    and (pixel_pick_mat_1[i][j]):
+                        
+                        pixel_change_count += 1
+                        print("ToF #1: distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
+                        log_file.write("ToF #1: distance change <= -500 detected on: {} {} at {}".format(i, j, datetime.datetime.now()))
+                        if pixel_change_count >= 3:
+
+                            return True
+
+            tof_data_origin_0 = tof_data_list_0
+            tof_data_origin_1 = tof_data_list_1
 
 
 def turn_lights_on(gradient_trigger):
     if gradient_trigger:
         turn_on_light_gradually()
+        #light_control.cct(2,0,3500,10)
 
     else:
         light_control.cct(0, 2, 3500, 1000)
@@ -257,38 +266,46 @@ def turn_lights_on(gradient_trigger):
         light_control.cct(4, 1, 3500, 500)
         light_control.cct(5, 2, 3500, 500)
         light_control.cct(5, 0, 3500, 500)
+
+
+def sleep_helper():
+    
+    with open("auto_control_log.txt", "w") as log_file:
+    
+        sleep_timer = time.time()
+        sleep_duration = 60
+
+        while(time.time() - sleep_timer) < sleep_duration:
+            # If the light is turned on manually
+            if not (all(value == 0.0 for value in light_control.get_sources(2, 0))): 
+                print("Lights are turned on during sleep, auto_control enabled {}".format(datetime.datetime.now()))
+                log_file.write("Lights are turned on during sleep, auto_control enabled {}".format(datetime.datetime.now()))
+                
+                return True
         
-
-
-def sleep_helper(log_file):
+        print("1 min is up, auto_control enabled {}".format(datetime.datetime.now()))
+        log_file.write("1 min is up, auto_control enabled {}".format(datetime.datetime.now()))
     
-    sleep_timer = time.time()
-
-    while(time.time() - sleep_timer) < 60:
-        # If the light is turned on manually
-        if not (all(value == 0.0 for value in light_control.get_sources(0, 0))): 
-            print("Lights are turned on during sleep, auto_control enabled {}".format(datetime.datetime.now()))
-            log_file.write("Lights are turned on during sleep, auto_control enabled {}".format(datetime.datetime.now()))
-            return True
-    
-    print("1 min is up, auto_control enabled {}".format(datetime.datetime.now()))
-    log_file.write("1 min is up, auto_control enabled {}".format(datetime.datetime.now()))
     return False
 
-if __name__ == "__main__":
-
+def main():
+    
     print("System is initializing, please make sure there's no movement near the door")
-    pixel_pick_mat = tof_pixel_check(0, bar_chart=False)
+    pixel_pick_mat_0 = tof_pixel_check(0, bar_chart=False)
+    pixel_pick_mat_1 = tof_pixel_check(1, bar_chart=False)
+    
     sleep_flag = False
     print("System Initialized")
     print("auto_control system is running")
+    
+    #light_control.cct(2,0,3500,0)
     
     # Open the file for writing
     with open("auto_control_log.txt", "w") as log_file:
         
         # While the light is off
         while True:
-            light_is_off = all(value == 0.0 for value in light_control.get_sources(0, 0))
+            light_is_off = all(value == 0.0 for value in light_control.get_sources(2, 0))
 
             # Check if the light is manually turned on and set sleep_flag to True
             if not light_is_off:
@@ -298,10 +315,10 @@ if __name__ == "__main__":
             if light_is_off and sleep_flag:
                 print("Lights are turned off, disable auto_control for 1 minute {}".format(datetime.datetime.now()))
                 log_file.write("Lights are turned off, disable auto_control for 1 minute {}".format(datetime.datetime.now()))
-                sleep_flag = sleep_helper(log_file)
-
+                sleep_flag = sleep_helper()
+            
             while light_is_off:
-                turn_on_lights = entry_detect(pixel_pick_mat, True)
+                turn_on_lights = entry_detect(pixel_pick_mat_0, pixel_pick_mat_1, True)
                 if turn_on_lights:
                     turn_lights_on(True)
                     sleep_flag = True
@@ -309,6 +326,10 @@ if __name__ == "__main__":
                     log_file.write("Turn on the lights at: {}\n".format(current_time))
                     print("Turn lights on at {}\n".format(current_time))
                     
-                light_is_off = all(value == 0.0 for value in light_control.get_sources(0, 0))
+                light_is_off = all(value == 0.0 for value in light_control.get_sources(2, 0))
 
 
+
+
+if __name__ == "__main__":
+    main()
