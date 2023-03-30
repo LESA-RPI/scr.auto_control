@@ -245,7 +245,6 @@ def entry_detect(pixel_pick_mat, start=False):
 def turn_lights_on(gradient_trigger):
     if gradient_trigger:
         turn_on_light_gradually()
-        
 
     else:
         light_control.cct(0, 2, 3500, 1000)
@@ -300,9 +299,7 @@ if __name__ == "__main__":
                 print("Lights are turned off, disable auto_control for 1 minute {}".format(datetime.datetime.now()))
                 log_file.write("Lights are turned off, disable auto_control for 1 minute {}".format(datetime.datetime.now()))
                 sleep_flag = sleep_helper(log_file)
-            
-            light_is_off = all(value == 0.0 for value in light_control.get_sources(0, 0))
-            
+
             while light_is_off:
                 turn_on_lights = entry_detect(pixel_pick_mat, True)
                 if turn_on_lights:
